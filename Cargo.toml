@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 authors = ["modeckrus"]
 repository = "https://github.com/modeckrus/hive"
+description = "A simple key-value database with easy struct support powered on sled"
+license = "MIT"
+readme = "README.md"
+keywords = ["database", "key-value", "sled", "serde", "pure-rust"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
