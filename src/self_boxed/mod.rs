@@ -57,8 +57,8 @@ where
                     name,
                     value,
                 });
-            // } else if let Err(e) = r {
-            //     println!("{}", e);
+                // } else if let Err(e) = r {
+                //     println!("{}", e);
             }
         }
 
@@ -85,6 +85,15 @@ where
             name,
             value,
         })
+    }
+
+    pub fn set(&self, value: T) -> Result<(), HiveError> {
+        let bytes = bincode::serialize(&value)?;
+        if let Some(ref hive_mind) = self.hive_mind {
+            hive_mind.set_bytes(self.name.clone(), &bytes)?;
+        }
+        *self.value.write().unwrap() = value;
+        Ok(())
     }
 }
 
@@ -128,29 +137,69 @@ mod test {
             "hello".as_bytes()
         }
     }
-    lazy_static! {
-        static ref HIVE_MIND: HiveMind = HiveMind::new(sled::open(test_db_file_path()).unwrap());
-    }
-    lazy_static! {
-        static ref HELLO: SelfHiveBoxed<Hello, &'static [u8]> =
-            SelfHiveBoxed::<Hello, &'static [u8]>::initialize(
-                Some(HIVE_MIND.clone()),
-                Hello::hive_name(),
-                // Hello::new(Arc::from("world"), "not sus".to_string(), 0)
-                Hello::default()
-            )
-            .unwrap();
+
+    macro_rules! get {
+        ($v:expr) => {
+            $v.value.read().unwrap()
+        };
     }
 
+    macro_rules! initialize_hive_mind {
+        ($e:expr) => {
+            lazy_static! {
+                static ref HIVE_MIND: HiveMind = HiveMind::new($e);
+            }
+        };
+    }
+    macro_rules! initialize_self_hive_boxed {
+        ($ty:ty, $e:expr) => {
+            lazy_static! {
+                static ref HELLO: SelfHiveBoxed<$ty, &'static [u8]> =
+                    SelfHiveBoxed::<$ty, &'static [u8]>::initialize(
+                        Some(HIVE_MIND.clone()),
+                        <$ty>::hive_name(),
+                        // Hello::new(Arc::from("world"), "not sus".to_string(), 0)
+                        $e
+                    )
+                    .unwrap();
+            }
+        };
+    }
+
+    initialize_hive_mind!(sled::open(test_db_file_path()).unwrap());
+    initialize_self_hive_boxed!(Hello, Hello::default());
+
+    // lazy_static! {
+    //     static ref HIVE_MIND: HiveMind = HiveMind::new(sled::open(test_db_file_path()).unwrap());
+    // }
+    // lazy_static! {
+    //     static ref HELLO: SelfHiveBoxed<Hello, &'static [u8]> =
+    //         SelfHiveBoxed::<Hello, &'static [u8]>::initialize(
+    //             Some(HIVE_MIND.clone()),
+    //             Hello::hive_name(),
+    //             // Hello::new(Arc::from("world"), "not sus".to_string(), 0)
+    //             Hello::default()
+    //         )
+    //         .unwrap();
+    // }
     #[test]
     fn test_hello_singleton() {
         {
-            for (k, v) in HIVE_MIND.iter_with_keys::<Hello>() {
-                println!("{:?}{:?}", String::from_utf8(k), v);
+            {
+                for (k, v) in HIVE_MIND.iter_with_keys::<Hello>() {
+                    println!("{:?}{:?}", String::from_utf8(k), v);
+                }
             }
+            let hello = get!(HELLO);
+            drop(hello);
+            HELLO
+                .set(Hello::new(Arc::from("world"), "not sus".to_string(), 0))
+                .unwrap();
         }
-        let hello = HELLO.value.read().unwrap();
-        assert_eq!(hello.sus, "sus");
+        {
+            let hello = get!(HELLO);
+            assert_eq!(hello.sus, "not sus");
+        }
     }
 
     #[test]
