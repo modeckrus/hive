@@ -2,6 +2,8 @@ use std::fmt::Debug;
 
 mod test;
 pub mod self_boxed;
+
+pub use self_boxed::{HiveNamed, SelfHiveBoxed, hive_mind::HiveMind};
 pub trait HiveBoxable: serde::de::DeserializeOwned + serde::Serialize + Debug {}
 
 impl<T: serde::de::DeserializeOwned + serde::Serialize + Debug> HiveBoxable for T {}

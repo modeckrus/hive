@@ -4,6 +4,35 @@ use std::sync::Arc;
 use crate::{HiveBoxable, HiveError};
 
 use self::hive_mind::HiveMind;
+#[macro_export]
+macro_rules! get {
+    ($v:expr) => {
+        $v.value.read().unwrap()
+    };
+}
+#[macro_export]
+macro_rules! initialize_hive_mind {
+    ($e:expr) => {
+        lazy_static! {
+            static ref HIVE_MIND: HiveMind = HiveMind::new($e);
+        }
+    };
+}
+#[macro_export]
+macro_rules! initialize_self_hive_boxed {
+    ($ty:ty, $e:expr) => {
+        lazy_static! {
+            static ref HELLO: SelfHiveBoxed<$ty, &'static [u8]> =
+                SelfHiveBoxed::<$ty, &'static [u8]>::initialize(
+                    Some(HIVE_MIND.clone()),
+                    <$ty>::hive_name(),
+                    // Hello::new(Arc::from("world"), "not sus".to_string(), 0)
+                    $e
+                )
+                .unwrap();
+        }
+    };
+}
 
 pub struct SelfHiveBoxed<T, N>
 where
@@ -138,33 +167,7 @@ mod test {
         }
     }
 
-    macro_rules! get {
-        ($v:expr) => {
-            $v.value.read().unwrap()
-        };
-    }
-
-    macro_rules! initialize_hive_mind {
-        ($e:expr) => {
-            lazy_static! {
-                static ref HIVE_MIND: HiveMind = HiveMind::new($e);
-            }
-        };
-    }
-    macro_rules! initialize_self_hive_boxed {
-        ($ty:ty, $e:expr) => {
-            lazy_static! {
-                static ref HELLO: SelfHiveBoxed<$ty, &'static [u8]> =
-                    SelfHiveBoxed::<$ty, &'static [u8]>::initialize(
-                        Some(HIVE_MIND.clone()),
-                        <$ty>::hive_name(),
-                        // Hello::new(Arc::from("world"), "not sus".to_string(), 0)
-                        $e
-                    )
-                    .unwrap();
-            }
-        };
-    }
+    
 
     initialize_hive_mind!(sled::open(test_db_file_path()).unwrap());
     initialize_self_hive_boxed!(Hello, Hello::default());
