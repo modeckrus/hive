@@ -1,6 +1,10 @@
-pub trait HiveBoxable: serde::de::DeserializeOwned + serde::Serialize {}
+use std::fmt::Debug;
 
-impl<T: serde::de::DeserializeOwned + serde::Serialize> HiveBoxable for T {}
+mod test;
+pub mod self_boxed;
+pub trait HiveBoxable: serde::de::DeserializeOwned + serde::Serialize + Debug {}
+
+impl<T: serde::de::DeserializeOwned + serde::Serialize + Debug> HiveBoxable for T {}
 
 pub struct HiveBox<T: HiveBoxable> {
     pub sled: sled::Db,
@@ -10,7 +14,7 @@ pub struct HiveBox<T: HiveBoxable> {
 
 //error for get from db
 #[derive(Debug, thiserror::Error)]
-pub enum GetError {
+pub enum HiveError {
     #[error("sled error: {0}")]
     Sled(#[from] sled::Error),
     #[error("bincode error: {0}")]
@@ -43,8 +47,8 @@ impl<T: HiveBoxable> HiveBox<T> {
         Ok(())
     }
 
-    pub fn get(&self, key: &str) -> Result<T, GetError> {
-        let bytes = self.sled.get(key)?.ok_or(GetError::None)?;
+    pub fn get(&self, key: &str) -> Result<T, HiveError> {
+        let bytes = self.sled.get(key)?.ok_or(HiveError::None)?;
         let value = bincode::deserialize::<T>(&bytes)?;
         Ok(value)
     }
@@ -72,7 +76,7 @@ impl<T: HiveBoxable> HiveBox<T> {
 }
 
 impl<T: std::hash::Hash + HiveBoxable> HiveBox<T> {
-    pub fn add(&self, value: T) -> Result<(), GetError> {
+    pub fn add(&self, value: T) -> Result<(), HiveError> {
         let bytes = bincode::serialize(&value)?;
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         value.hash(&mut hasher);
@@ -81,16 +85,16 @@ impl<T: std::hash::Hash + HiveBoxable> HiveBox<T> {
         Ok(())
     }
 
-    pub fn exact(&self, value: &T) -> Result<T, GetError> {
+    pub fn exact(&self, value: &T) -> Result<T, HiveError> {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         value.hash(&mut hasher);
         let hash = std::hash::Hasher::finish(&hasher);
-        let bytes = self.sled.get(hash.to_le_bytes())?.ok_or(GetError::None)?;
+        let bytes = self.sled.get(hash.to_le_bytes())?.ok_or(HiveError::None)?;
         let value = bincode::deserialize::<T>(&bytes)?;
         Ok(value)
     }
 
-    pub fn remove_dublicate(&self, value: &T) -> Result<(), GetError> {
+    pub fn remove_dublicate(&self, value: &T) -> Result<(), HiveError> {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         value.hash(&mut hasher);
         let hash = std::hash::Hasher::finish(&hasher);
@@ -99,46 +103,12 @@ impl<T: std::hash::Hash + HiveBoxable> HiveBox<T> {
     }
 }
 #[cfg(test)]
-mod test {
+mod test_hive_mind {
+    use crate::test::test_utils::*;
+
     use super::*;
     use std::sync::Arc;
-    #[derive(
-        Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
-    )]
-    struct Hello {
-        world: Arc<str>,
-        sus: String,
-        int: i32,
-    }
-
-    impl Hello {
-        fn new(world: Arc<str>, sus: String, int: i32) -> Self {
-            Self { world, sus, int }
-        }
-    }
-
-    impl Default for Hello {
-        fn default() -> Self {
-            Self {
-                world: Arc::from("world"),
-                sus: String::from("sus"),
-                int: 0,
-            }
-        }
-    }
-    fn test_db_file_path() -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join("embed_db_test");
-        dir
-    }
-    fn test_db_file() -> HiveBox<Hello> {
-        let dir = test_db_file_path();
-        HiveBox::<Hello>::new(dir).unwrap()
-    }
-
-    fn test_db_memory() -> HiveBox<Hello> {
-        HiveBox::<Hello>::memory().unwrap()
-    }
-
+    
     #[test]
     fn test_db_with_file() {
         let dir = test_db_file_path();
