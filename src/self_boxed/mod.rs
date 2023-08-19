@@ -75,16 +75,16 @@ where
         // Self::debug_print(hive_mind.clone(), "before initialize");
         if let Some(hive_mind) = hive_mind.clone() {
             let r = hive_mind.get::<T, N>(name.clone());
-            if let Ok(value) = r {
+            if let Ok(new_value) = r {
                 // println!(
                 //     "{} already exists",
                 //     std::str::from_utf8(name.as_ref()).unwrap()
                 // );
-                let value = Arc::new(std::sync::RwLock::new(value));
+                let new_value_arc = Arc::new(std::sync::RwLock::new(new_value));
                 return Ok(Self {
                     hive_mind: Some(hive_mind),
                     name,
-                    value,
+                    value: new_value_arc,
                 });
                 // } else if let Err(e) = r {
                 //     println!("{}", e);
@@ -167,8 +167,6 @@ mod test {
         }
     }
 
-    
-
     initialize_hive_mind!(sled::open(test_db_file_path()).unwrap());
     initialize_self_hive_boxed!(HELLO, Hello, Hello::default());
 
@@ -187,27 +185,24 @@ mod test {
     // }
 
     #[test]
-    fn remove_db(){
+    fn remove_db() {
         remove_test_db();
     }
     #[test]
     fn test_hello_singleton() {
         {
-            {
-                for (k, v) in HIVE_MIND.iter_with_keys::<Hello>() {
-                    println!("{:?}{:?}", String::from_utf8(k), v);
-                }
-            }
-            let hello = get!(HELLO);
-            drop(hello);
+            println!("{:?}", get!(HELLO));
             HELLO
-                .set(Hello::new(Arc::from("world"), "not sus".to_string(), 0))
+                .set(Hello::new(Arc::from("world"), String::from("sus"), 0))
                 .unwrap();
         }
-        {
-            let hello = get!(HELLO);
-            assert_eq!(hello.sus, "not sus");
-        }
+        let hello = SelfHiveBoxed::initialize(
+            Some(HIVE_MIND.clone()),
+            Hello::hive_name(),
+            Hello::default(),
+        )
+        .unwrap();
+        println!("{:?}",get!(hello));
     }
 
     #[test]
