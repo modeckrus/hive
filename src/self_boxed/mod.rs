@@ -20,9 +20,9 @@ macro_rules! initialize_hive_mind {
 }
 #[macro_export]
 macro_rules! initialize_self_hive_boxed {
-    ($ty:ty, $e:expr) => {
+    ($name:ident, $ty:ty, $e:expr) => {
         lazy_static! {
-            static ref HELLO: SelfHiveBoxed<$ty, &'static [u8]> =
+            static ref $name: SelfHiveBoxed<$ty, &'static [u8]> =
                 SelfHiveBoxed::<$ty, &'static [u8]>::initialize(
                     Some(HIVE_MIND.clone()),
                     <$ty>::hive_name(),
@@ -170,7 +170,7 @@ mod test {
     
 
     initialize_hive_mind!(sled::open(test_db_file_path()).unwrap());
-    initialize_self_hive_boxed!(Hello, Hello::default());
+    initialize_self_hive_boxed!(HELLO, Hello, Hello::default());
 
     // lazy_static! {
     //     static ref HIVE_MIND: HiveMind = HiveMind::new(sled::open(test_db_file_path()).unwrap());
@@ -185,6 +185,11 @@ mod test {
     //         )
     //         .unwrap();
     // }
+
+    #[test]
+    fn remove_db(){
+        remove_test_db();
+    }
     #[test]
     fn test_hello_singleton() {
         {
