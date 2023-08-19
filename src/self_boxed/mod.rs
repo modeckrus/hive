@@ -14,15 +14,18 @@ macro_rules! get {
 macro_rules! initialize_hive_mind {
     ($e:expr) => {
         lazy_static::lazy_static! {
-            static ref HIVE_MIND: crate::HiveMind = crate::HiveMind::new($e);
+            pub static ref HIVE_MIND: crate::HiveMind = crate::HiveMind::new($e);
         }
     };
 }
+
+
+
 #[macro_export]
 macro_rules! initialize_self_hive_boxed {
-    ($name:ident, $ty:ty, $e:expr) => {
+    ($v:vis $name:ident, $ty:ty, $e:expr) => {
         lazy_static::lazy_static! {
-            static ref $name: crate::SelfHiveBoxed<$ty, &'static [u8]> =
+            pub static ref $name: crate::SelfHiveBoxed<$ty, &'static [u8]> =
             crate::SelfHiveBoxed::<$ty, &'static [u8]>::initialize(
                     Some(HIVE_MIND.clone()),
                     <$ty>::hive_name(),
@@ -168,7 +171,7 @@ mod test {
     }
 
     initialize_hive_mind!(sled::open(test_db_file_path()).unwrap());
-    initialize_self_hive_boxed!(HELLO, Hello, Hello::default());
+    initialize_self_hive_boxed!(pub HELLO, Hello, Hello::default());
 
     // lazy_static! {
     //     static ref HIVE_MIND: HiveMind = HiveMind::new(sled::open(test_db_file_path()).unwrap());
@@ -202,7 +205,7 @@ mod test {
             Hello::default(),
         )
         .unwrap();
-        println!("{:?}",get!(hello));
+        println!("{:?}", get!(hello));
     }
 
     #[test]

@@ -6,7 +6,7 @@ pub mod test_utils {
     #[derive(
         Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
     )]
-    pub(crate) struct Hello {
+    pub struct Hello {
         pub(crate) world: Arc<str>,
         pub(crate) sus: String,
         pub(crate) int: i32,

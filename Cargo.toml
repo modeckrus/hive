@@ -1,6 +1,6 @@
 [package]
 name = "hive-mind"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 authors = ["modeckrus"]
 repository = "https://github.com/modeckrus/hive"
@@ -15,6 +15,5 @@ bincode = "1.3.3"
 serde = { version = "1.0.183", features = ["rc", "derive", "serde_derive"] }
 sled = "0.34.7"
 thiserror = "1.0.46"
-
-[dev-dependencies]
 lazy_static = "1.4.0"
+
