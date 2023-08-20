@@ -7,7 +7,7 @@ use self::hive_mind::HiveMind;
 #[macro_export]
 macro_rules! get {
     ($v:expr) => {
-        $v.value.read().unwrap()
+        $v.value.read().await
     };
 }
 #[macro_export]
@@ -18,8 +18,6 @@ macro_rules! initialize_hive_mind {
         }
     };
 }
-
-
 
 #[macro_export]
 macro_rules! initialize_self_hive_boxed {
@@ -44,7 +42,7 @@ where
 {
     pub hive_mind: Option<HiveMind>,
     pub name: N,
-    pub value: Arc<std::sync::RwLock<T>>,
+    pub value: Arc<tokio::sync::RwLock<T>>,
 }
 
 impl<T, N> SelfHiveBoxed<T, N>
@@ -53,10 +51,10 @@ where
     N: AsRef<[u8]> + Clone,
 {
     pub fn new(hive_mind: Option<HiveMind>, name: N, value: T) -> Result<Self, HiveError> {
-        let value = Arc::new(std::sync::RwLock::new(value));
         if let Some(hive_mind) = hive_mind.clone() {
             hive_mind.set(name.clone(), &value)?;
         }
+        let value = Arc::new(tokio::sync::RwLock::new(value));
         Ok(Self {
             hive_mind,
             name,
@@ -74,7 +72,7 @@ where
 
     pub fn initialize(hive_mind: Option<HiveMind>, name: N, value: T) -> Result<Self, HiveError> {
         let bytes = bincode::serialize(&value)?;
-        let rw_value = Arc::new(std::sync::RwLock::new(value));
+
         // Self::debug_print(hive_mind.clone(), "before initialize");
         if let Some(hive_mind) = hive_mind.clone() {
             let r = hive_mind.get::<T, N>(name.clone());
@@ -83,7 +81,7 @@ where
                 //     "{} already exists",
                 //     std::str::from_utf8(name.as_ref()).unwrap()
                 // );
-                let new_value_arc = Arc::new(std::sync::RwLock::new(new_value));
+                let new_value_arc = Arc::new(tokio::sync::RwLock::new(new_value));
                 return Ok(Self {
                     hive_mind: Some(hive_mind),
                     name,
@@ -101,6 +99,8 @@ where
         if let Some(hive_mind) = hive_mind.clone() {
             hive_mind.set_bytes(name.clone(), &bytes)?;
         }
+
+        let rw_value = Arc::new(tokio::sync::RwLock::new(value));
         // Self::debug_print(hive_mind.clone(), "after initialize");
         Ok(Self {
             hive_mind,
@@ -111,7 +111,7 @@ where
 
     pub fn get(hive_mind: HiveMind, name: N) -> Result<Self, HiveError> {
         let value = hive_mind.get::<T, N>(name.clone())?;
-        let value = Arc::new(std::sync::RwLock::new(value));
+        let value = Arc::new(tokio::sync::RwLock::new(value));
         Ok(Self {
             hive_mind: Some(hive_mind),
             name,
@@ -119,12 +119,13 @@ where
         })
     }
 
-    pub fn set(&self, value: T) -> Result<(), HiveError> {
+    pub async fn set(&self, value: T) -> Result<(), HiveError> {
         let bytes = bincode::serialize(&value)?;
         if let Some(ref hive_mind) = self.hive_mind {
             hive_mind.set_bytes(self.name.clone(), &bytes)?;
         }
-        *self.value.write().unwrap() = value;
+        let mut n = self.value.write().await;
+        *n = value;
         Ok(())
     }
 }
@@ -140,7 +141,7 @@ where
     pub fn get_named(hive_mind: HiveMind) -> Result<Self, HiveError> {
         let name = T::hive_name();
         let value = hive_mind.get::<T, _>(name.clone())?;
-        let value = Arc::new(std::sync::RwLock::new(value));
+        let value = Arc::new(tokio::sync::RwLock::new(value));
         Ok(Self {
             hive_mind: Some(hive_mind),
             name,
@@ -150,7 +151,7 @@ where
     pub fn set_named(hive_mind: HiveMind, value: T) -> Result<Self, HiveError> {
         let name = T::hive_name();
         hive_mind.set(name.clone(), &value)?;
-        let value = Arc::new(std::sync::RwLock::new(value));
+        let value = Arc::new(tokio::sync::RwLock::new(value));
         Ok(Self {
             hive_mind: Some(hive_mind),
             name,
@@ -191,13 +192,13 @@ mod test {
     fn remove_db() {
         remove_test_db();
     }
-    #[test]
-    fn test_hello_singleton() {
+    #[tokio::test]
+    async fn test_hello_singleton() {
         {
             println!("{:?}", get!(HELLO));
             HELLO
                 .set(Hello::new(Arc::from("world"), String::from("sus"), 0))
-                .unwrap();
+                .await.unwrap();
         }
         let hello = SelfHiveBoxed::initialize(
             Some(HIVE_MIND.clone()),
