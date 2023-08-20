@@ -1,6 +1,6 @@
 [package]
 name = "hive-mind"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 authors = ["modeckrus"]
 repository = "https://github.com/modeckrus/hive"
@@ -16,4 +16,8 @@ serde = { version = "1.0.183", features = ["rc", "derive", "serde_derive"] }
 sled = "0.34.7"
 thiserror = "1.0.46"
 lazy_static = "1.4.0"
+tokio = { version = "1.32.0", features = ["sync"] }
+
+[dev-dependencies]
+tokio = { version = "1.32.0", features = ["full"] }
 
