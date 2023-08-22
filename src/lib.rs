@@ -8,10 +8,16 @@ pub trait HiveBoxable: serde::de::DeserializeOwned + serde::Serialize + Debug {}
 
 impl<T: serde::de::DeserializeOwned + serde::Serialize + Debug> HiveBoxable for T {}
 
+#[derive(Debug, Clone)]
 pub struct HiveBox<T: HiveBoxable> {
     pub sled: sled::Db,
-    pub path: Option<std::path::PathBuf>,
+    pub path: Option<std::sync::Arc<std::path::PathBuf>>,
     _phantom: std::marker::PhantomData<T>,
+}
+impl <I: HiveBoxable> PartialEq for HiveBox<I> {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+    }
 }
 
 //error for get from db
@@ -30,7 +36,7 @@ impl<T: HiveBoxable> HiveBox<T> {
         let path = path.as_ref();
         Ok(Self {
             sled: sled::open(path.clone())?,
-            path: Some(path.to_path_buf()),
+            path: Some(std::sync::Arc::new(path.to_path_buf())),
             _phantom: std::marker::PhantomData,
         })
     }
