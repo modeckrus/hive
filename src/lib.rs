@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 
-mod test;
 pub mod self_boxed;
+mod test;
 
-pub use self_boxed::{HiveNamed, SelfHiveBoxed, hive_mind::HiveMind};
+pub use self_boxed::{hive_mind::HiveMind, HiveNamed, SelfHiveBoxed};
 pub trait HiveBoxable: serde::de::DeserializeOwned + serde::Serialize + Debug {}
 
 impl<T: serde::de::DeserializeOwned + serde::Serialize + Debug> HiveBoxable for T {}
@@ -14,7 +14,7 @@ pub struct HiveBox<T: HiveBoxable> {
     pub path: Option<std::sync::Arc<std::path::PathBuf>>,
     _phantom: std::marker::PhantomData<T>,
 }
-impl <I: HiveBoxable> PartialEq for HiveBox<I> {
+impl<I: HiveBoxable> PartialEq for HiveBox<I> {
     fn eq(&self, other: &Self) -> bool {
         self.path == other.path
     }
@@ -25,8 +25,8 @@ impl <I: HiveBoxable> PartialEq for HiveBox<I> {
 pub enum HiveError {
     #[error("sled error: {0}")]
     Sled(#[from] sled::Error),
-    #[error("bincode error: {0}")]
-    Bincode(#[from] bincode::Error),
+    #[error("pot error: {0}")]
+    PotError(#[from] pot::Error),
     #[error("no value found")]
     None,
 }
@@ -49,15 +49,20 @@ impl<T: HiveBoxable> HiveBox<T> {
         })
     }
 
-    pub fn insert(&self, key: &str, value: T) -> Result<(), sled::Error> {
-        let bytes = bincode::serialize(&value).unwrap();
+    pub fn insert(&self, key: &str, value: T) -> Result<(), HiveError> {
+        let bytes = pot::to_vec(&value)?;
+        self.sled.insert(key, bytes)?;
+        Ok(())
+    }
+    
+    pub fn insert_bytes(&self, key: impl AsRef<[u8]>, bytes: impl Into<sled::IVec>) -> Result<(), HiveError> {
         self.sled.insert(key, bytes)?;
         Ok(())
     }
 
     pub fn get(&self, key: &str) -> Result<T, HiveError> {
         let bytes = self.sled.get(key)?.ok_or(HiveError::None)?;
-        let value = bincode::deserialize::<T>(&bytes)?;
+        let value = pot::from_slice::<T>(&bytes)?;
         Ok(value)
     }
 
@@ -66,10 +71,8 @@ impl<T: HiveBoxable> HiveBox<T> {
             .iter()
             .map(|result| result.ok())
             .flatten()
-            .map(|(_, bytes)| {
-                let hello = bincode::deserialize::<T>(&bytes).unwrap();
-                hello
-            })
+            .map(|(_, bytes)| pot::from_slice::<T>(&bytes).ok())
+            .flatten()
             .into_iter()
     }
 
@@ -85,7 +88,7 @@ impl<T: HiveBoxable> HiveBox<T> {
 
 impl<T: std::hash::Hash + HiveBoxable> HiveBox<T> {
     pub fn add(&self, value: T) -> Result<(), HiveError> {
-        let bytes = bincode::serialize(&value)?;
+        let bytes = pot::to_vec(&value)?;
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         value.hash(&mut hasher);
         let hash = std::hash::Hasher::finish(&hasher);
@@ -98,7 +101,7 @@ impl<T: std::hash::Hash + HiveBoxable> HiveBox<T> {
         value.hash(&mut hasher);
         let hash = std::hash::Hasher::finish(&hasher);
         let bytes = self.sled.get(hash.to_le_bytes())?.ok_or(HiveError::None)?;
-        let value = bincode::deserialize::<T>(&bytes)?;
+        let value = pot::from_slice::<T>(&bytes)?;
         Ok(value)
     }
 
@@ -116,7 +119,7 @@ mod test_hive_mind {
 
     use super::*;
     use std::sync::Arc;
-    
+
     #[test]
     fn test_db_with_file() {
         let dir = test_db_file_path();

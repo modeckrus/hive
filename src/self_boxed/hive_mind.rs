@@ -18,7 +18,7 @@ impl HiveMind {
         N: AsRef<[u8]>,
     {
         let bytes = self.sled.get(name)?.ok_or(HiveError::None)?;
-        let value = bincode::deserialize::<T>(&bytes)?;
+        let value = pot::from_slice::<T>(&bytes)?;
         Ok(value)
     }
 
@@ -27,7 +27,7 @@ impl HiveMind {
         T: HiveBoxable,
         N: AsRef<[u8]>,
     {
-        let bytes = bincode::serialize(value)?;
+        let bytes = pot::to_vec(value)?;
         self.sled.insert(name, bytes)?;
         Ok(())
     }
@@ -46,7 +46,7 @@ impl HiveMind {
             .map(|result| result.ok())
             .flatten()
             .map(|(_, bytes)| {
-                let hello = bincode::deserialize::<T>(&bytes).unwrap();
+                let hello = pot::from_slice::<T>(&bytes).unwrap();
                 hello
             })
             .into_iter()
@@ -58,7 +58,7 @@ impl HiveMind {
             .map(|result| result.ok())
             .flatten()
             .map(|(key, bytes)| {
-                if let Some(v) = bincode::deserialize::<T>(&bytes).ok() {
+                if let Some(v) = pot::from_slice::<T>(&bytes).ok() {
                     Some((key.to_vec(), v))
                 } else {
                     None

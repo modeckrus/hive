@@ -71,7 +71,7 @@ where
     // }
 
     pub fn initialize(hive_mind: Option<HiveMind>, name: N, value: T) -> Result<Self, HiveError> {
-        let bytes = bincode::serialize(&value)?;
+        let bytes = pot::to_vec(&value)?;
 
         // Self::debug_print(hive_mind.clone(), "before initialize");
         if let Some(hive_mind) = hive_mind.clone() {
@@ -120,7 +120,7 @@ where
     }
 
     pub async fn set(&self, value: T) -> Result<(), HiveError> {
-        let bytes = bincode::serialize(&value)?;
+        let bytes = pot::to_vec(&value)?;
         if let Some(ref hive_mind) = self.hive_mind {
             hive_mind.set_bytes(self.name.clone(), &bytes)?;
         }
@@ -270,7 +270,7 @@ mod test {
         {
             let hive_mind = HiveMind::new(sled::open(test_db_file_path()).unwrap());
             let hello = Hello::default();
-            let bytes = bincode::serialize(&hello).unwrap();
+            let bytes = pot::to_vec(&hello).unwrap();
             hive_mind.set_bytes(Hello::hive_name(), &bytes).unwrap();
         }
         {
